@@ -4,6 +4,41 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.heat';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const CITY_COORDINATES = {
+  'delhi': [28.6139, 77.2090],
+  'mumbai': [19.0760, 72.8777],
+  'bangalore': [12.9716, 77.5946],
+  'bengaluru': [12.9716, 77.5946],
+  'hyderabad': [17.3850, 78.4867],
+  'kolkata': [22.5726, 88.3639],
+  'chennai': [13.0827, 80.2707],
+  'pune': [18.5204, 73.8567],
+  'ahmedabad': [23.0225, 72.5714],
+  'jaipur': [26.9124, 75.7873],
+  'lucknow': [26.8467, 80.9462],
+  'kanpur': [26.4499, 80.3319],
+  'surat': [21.1702, 72.8311],
+  'nagpur': [21.1458, 79.0882],
+  'patna': [25.6180, 85.1350],
+  'bhopal': [23.2599, 77.4126],
+  'indore': [22.7196, 75.8577],
+  'visakhapatnam': [17.6868, 83.2185],
+  'ghaziabad': [28.6692, 77.4538],
+  'ludhiana': [30.9010, 75.8573],
+  'agra': [27.1767, 78.0081],
+  'thane': [19.2183, 72.9781],
+  'meerut': [28.9845, 77.7064],
+  'srinagar': [34.0837, 74.7973],
+  'nashik': [19.9975, 73.7898],
+  'faridabad': [28.4089, 77.3178],
+  'rajkot': [22.3039, 70.8022],
+  'varanasi': [25.3176, 82.9739],
+  'kalyan': [19.2403, 73.1305],
+  'vasai': [19.3919, 72.8397]
+};
+
 // ─── User Location Marker ──────────────────────────────────────────────────────
 function UserLocationMarker({ position, onPositionChange }) {
   const map = useMap();
@@ -18,20 +53,18 @@ function UserLocationMarker({ position, onPositionChange }) {
 
   const icon = L.divIcon({
     className: 'user-location-icon',
-    html: `<div style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8]
+    html: `<div style="width:18px;height:18px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 16px rgba(59,130,246,0.8);animation:pulse 2s infinite;"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9]
   });
 
   return (
-    <Marker
-      position={position}
-      icon={icon}
-    >
+    <Marker position={position} icon={icon}>
       <Popup>
-        <div style={{ fontWeight: 600 }}>Your Location</div>
-        <div style={{ fontSize: '12px', marginTop: 4 }}>
-          {position[0].toFixed(5)}, {position[1].toFixed(5)}
+        <div style={{ fontWeight: 700, color: '#1e293b' }}>📍 Your Current Location</div>
+        <div style={{ fontSize: '12px', marginTop: 4, color: '#64748b' }}>
+          Latitude: {position[0].toFixed(5)}<br/>
+          Longitude: {position[1].toFixed(5)}
         </div>
       </Popup>
     </Marker>
@@ -55,14 +88,19 @@ function SosMarkers({ sosAlerts = [] }) {
           <CircleMarker
             key={id}
             center={[alert.latitude, alert.longitude]}
-            radius={10}
-            pathOptions={{ color: statusColor, fillColor: statusColor, fillOpacity: 0.8, weight: 3 }}
+            radius={12}
+            pathOptions={{ color: statusColor, fillColor: statusColor, fillOpacity: 0.85, weight: 3 }}
           >
             <Popup>
-              <div style={{ color: '#0f172a', minWidth: '180px' }}>
+              <div style={{ color: '#0f172a', minWidth: '200px' }}>
                 <div style={{ fontWeight: 800, color: '#ef4444', marginBottom: 4 }}>🆘 EMERGENCY SOS</div>
                 <div style={{ fontSize: '13px', marginBottom: 4 }}><b>Victim:</b> {alert.username}</div>
                 <div style={{ fontSize: '13px', marginBottom: 4 }}><b>Message:</b> {alert.message}</div>
+                {alert.assignedPoliceStationName && (
+                  <div style={{ fontSize: '12px', color: '#0284c7', marginBottom: 4 }}>
+                    <b>Assigned Unit:</b> {alert.assignedPoliceStationName}
+                  </div>
+                )}
                 <div style={{ fontSize: '13px', borderTop: '1px solid #eee', paddingTop: 4, marginTop: 4 }}>
                   <b>Status:</b> <span style={{ color: statusColor, fontWeight: 700 }}>{alert.status?.toUpperCase()}</span>
                 </div>
@@ -81,9 +119,9 @@ function SimulatedSosMarker({ position, onMove }) {
 
   const icon = L.divIcon({
     className: 'victim-simulator-icon',
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:#fb923c;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;border:3px solid white;box-shadow:0 0 20px rgba(251,146,60,0.6);">V</div>`,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15]
+    html: `<div style="width:32px;height:32px;border-radius:50%;background:#fb923c;display:flex;align-items:center;justify-content:center;color:white;font-weight:900;border:3px solid white;box-shadow:0 0 20px rgba(251,146,60,0.8);font-size:14px;">V</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
   });
 
   return (
@@ -99,63 +137,119 @@ function SimulatedSosMarker({ position, onMove }) {
       }}
     >
       <Popup>
-        <div style={{ fontWeight: 600 }}>🛠️ Simulation Victim Unit</div>
-        <div style={{ fontSize: '12px', marginTop: 4 }}>Drag me to set dynamic location</div>
+        <div style={{ fontWeight: 700, color: '#0f172a' }}>🛠️ Simulation Victim Unit</div>
+        <div style={{ fontSize: '12px', marginTop: 4, color: '#64748b' }}>Drag me to set dynamic victim location</div>
       </Popup>
     </Marker>
   );
 }
 
-// ─── Police stations layer ──────────────────────────────────────────────────
+// ─── Police Stations Layer ──────────────────────────────────────────────────
 function PoliceStationsLayer({ enabled, sosAlerts = [] }) {
   const map = useMap();
-  const markersRef = useRef([]);
+  const layerGroupRef = useRef(null);
 
-  // Identify stations with active SOS alerts
   const assignedStationIds = sosAlerts
     .filter(alert => alert.type === 'sos' && alert.status !== 'resolved' && alert.assignedPoliceStationId)
-    .map(alert => alert.assignedPoliceStationId);
+    .map(alert => alert.assignedPoliceStationId?.toString());
 
   const getPoliceIcon = (stationId) => {
     const isAssigned = assignedStationIds.includes(stationId);
-    const blinkStyle = isAssigned ? 'animation: blink 1s infinite;' : '';
+    const blinkClass = isAssigned ? 'blinking-police-pin' : '';
 
     return L.divIcon({
-      className: 'police-pin',
-      html: `<div style="width:12px;height:12px;background:${isAssigned ? '#ef4444' : '#38bdf8'};border:3px solid white;border-radius:50%;box-shadow:0 0 12px rgba(${isAssigned ? '239,68,68' : '56,189,248'},0.5);${blinkStyle}"></div>`,
-      iconSize: [12, 12],
-      iconAnchor: [6, 6]
+      className: `police-pin ${blinkClass}`,
+      html: `
+        <div style="
+          width: 28px;
+          height: 28px;
+          background: ${isAssigned ? '#ef4444' : '#0284c7'};
+          border: 2px solid #ffffff;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 14px;
+          box-shadow: 0 0 12px ${isAssigned ? 'rgba(239,68,68,0.9)' : 'rgba(2,132,199,0.7)'};
+          ${isAssigned ? 'animation: pulse 1s infinite;' : ''}
+        ">
+          👮
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14]
     });
   };
 
-  const clearMarkers = useCallback(() => {
-    markersRef.current.forEach(m => map.removeLayer(m));
-    markersRef.current = [];
+  useEffect(() => {
+    if (!layerGroupRef.current) {
+      layerGroupRef.current = L.layerGroup().addTo(map);
+    }
+    return () => {
+      if (layerGroupRef.current) {
+        layerGroupRef.current.clearLayers();
+        map.removeLayer(layerGroupRef.current);
+        layerGroupRef.current = null;
+      }
+    };
   }, [map]);
 
   const fetchStations = useCallback(async () => {
-    if (!enabled) return;
-    clearMarkers();
+    if (!layerGroupRef.current) return;
+    layerGroupRef.current.clearLayers();
+
+    if (!enabled) {
+      return;
+    }
+
     const b = map.getBounds();
     try {
-      const res = await fetch(`/api/stations?bbox=${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}&limit=50`);
+      const bboxParam = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+      const res = await fetch(`${API_URL}/api/stations?bbox=${bboxParam}&limit=200`);
       const data = await res.json();
       const stations = Array.isArray(data.stations) ? data.stations : [];
+      
       stations.forEach(s => {
         const stationId = s.osm_id ? s.osm_id.toString() : s.id?.toString();
         const icon = getPoliceIcon(stationId);
-        const m = L.marker([s.lat, s.lon], { icon }).bindPopup(`👮 ${s.name || 'Station'}`);
-        m.addTo(map);
-        markersRef.current.push(m);
+        const m = L.marker([s.lat, s.lon], { icon }).bindPopup(`
+          <div style="color: #0f172a; min-width: 180px;">
+            <div style="font-weight: 700; color: #0284c7; font-size: 14px; margin-bottom: 4px;">👮 ${s.name || 'Police Station'}</div>
+            ${s.address ? `<div style="font-size: 12px; color: #475569; margin-bottom: 4px;"><b>Address:</b> ${s.address}</div>` : ''}
+            ${s.phone ? `<div style="font-size: 12px; color: #16a34a; margin-bottom: 4px;"><b>Helpline:</b> ${s.phone}</div>` : ''}
+            <div style="font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 4px; margin-top: 4px;">
+              Coordinates: ${s.lat.toFixed(4)}, ${s.lon.toFixed(4)}
+            </div>
+          </div>
+        `);
+        if (layerGroupRef.current) {
+          m.addTo(layerGroupRef.current);
+        }
       });
-    } catch (err) { console.warn('Failed to load stations', err); }
-  }, [enabled, map, clearMarkers, assignedStationIds]);
+    } catch (err) {
+      console.warn('Failed to load stations:', err);
+    }
+  }, [enabled, map, assignedStationIds]);
 
   useEffect(() => {
+    if (!enabled) {
+      if (layerGroupRef.current) {
+        layerGroupRef.current.clearLayers();
+      }
+      return;
+    }
     fetchStations();
   }, [enabled, fetchStations]);
 
-  useMapEvents({ moveend: enabled ? fetchStations : undefined });
+  useMapEvents({
+    moveend: () => {
+      if (enabled) {
+        fetchStations();
+      }
+    }
+  });
+
   return null;
 }
 
@@ -175,25 +269,27 @@ function HeatmapLayer({ enabled }) {
 
     const fetchCrimeData = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/crimes');
+        const response = await fetch(`${API_URL}/api/crimes`);
         const data = await response.json();
         const crimes = data.crimes || [];
 
-        const points = crimes.map(c => [c.latitude, c.longitude, 0.5]); // lat, lng, intensity
+        // Scale point intensity and radius dynamically
+        const points = crimes.map(c => [c.latitude, c.longitude, 0.6]);
 
         if (heatLayerRef.current) {
           map.removeLayer(heatLayerRef.current);
         }
 
         heatLayerRef.current = L.heatLayer(points, {
-          radius: 25,
-          blur: 15,
-          maxZoom: 17,
+          radius: 28,
+          blur: 18,
+          maxZoom: 16,
+          max: 0.8,
           gradient: {
-            0.4: 'rgba(56, 189, 248, 0.5)', // Blue
-            0.6: 'rgba(16, 185, 129, 0.7)', // Green
-            0.7: 'rgba(234, 179, 8, 0.8)',  // Yellow
-            0.8: 'rgba(249, 115, 22, 0.9)', // Orange
+            0.2: 'rgba(56, 189, 248, 0.5)', // Blue
+            0.4: 'rgba(16, 185, 129, 0.7)', // Green
+            0.6: 'rgba(234, 179, 8, 0.85)', // Yellow
+            0.8: 'rgba(249, 115, 22, 0.95)', // Orange
             1.0: 'rgba(239, 68, 68, 1)'     // Red
           }
         }).addTo(map);
@@ -215,28 +311,38 @@ function HeatmapLayer({ enabled }) {
   return null;
 }
 
-// ─── Map View Controller (handles programmatic panning) ───────────────────────
-function MapController({ userPos, isAdminMode, victimPos }) {
+// ─── Map View Controller & Focus FlyTo ───────────────────────────────────────────
+function MapController({ userPos, isAdminMode, victimPos, focusedArea }) {
   const map = useMap();
   const hasCenteredOnUser = useRef(false);
 
   useEffect(() => {
-    if (userPos && !hasCenteredOnUser.current) {
-      map.setView(userPos, 13);
+    if (focusedArea) {
+      const cityKey = focusedArea.name?.toLowerCase().trim();
+      const coords = CITY_COORDINATES[cityKey];
+      if (coords) {
+        map.flyTo(coords, 11, { duration: 1.5 });
+      }
+    }
+  }, [focusedArea, map]);
+
+  useEffect(() => {
+    if (!focusedArea && userPos && !hasCenteredOnUser.current) {
+      map.setView(userPos, 6);
       hasCenteredOnUser.current = true;
     }
-  }, [userPos, map]);
+  }, [userPos, focusedArea, map]);
 
   useEffect(() => {
     if (isAdminMode && victimPos) {
-      map.setView(victimPos, 13);
+      map.setView(victimPos, 11);
     }
   }, [isAdminMode, victimPos, map]);
 
   return null;
 }
 
-// ─── Map interaction handler (Admin Only) ───────────────────────────────────
+// ─── Map Click Handler (Admin Only) ───────────────────────────────────────────
 function MapClickHandler({ isAdminMode, onLocationSelect }) {
   useMapEvents({
     click: (e) => {
@@ -248,8 +354,15 @@ function MapClickHandler({ isAdminMode, onLocationSelect }) {
   return null;
 }
 
-// ─── Main CrimeMap (SIMULATOR ENABLED) ──────────────────────────────────────────
-export default function CrimeMap({ sosAlerts = [], isAdminMode = false, onCursorLocationChange = null, showHeatmap = false }) {
+// ─── Main CrimeMap Component ──────────────────────────────────────────────────
+export default function CrimeMap({
+  sosAlerts = [],
+  isAdminMode = false,
+  onCursorLocationChange = null,
+  showHeatmap = false,
+  focusedArea = null,
+  onClearFocus = null
+}) {
   const INDIA_CENTER = [22.9074, 79.1469];
 
   const [showStations, setShowStations] = useState(true);
@@ -259,43 +372,37 @@ export default function CrimeMap({ sosAlerts = [], isAdminMode = false, onCursor
   const [sosLoading, setSosLoading] = useState(false);
   const [sosSuccess, setSosSuccess] = useState(false);
 
-  // Sync internal state with prop
   useEffect(() => {
     setInternalShowHeatmap(showHeatmap);
   }, [showHeatmap]);
 
-  // Restore automatic user geolocation
   useEffect(() => {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
           const newPos = [latitude, longitude];
-
           setUserPos(newPos);
           if (onCursorLocationChange) {
             onCursorLocationChange(newPos);
           }
-          console.log("Automatic geolocation sync successful:", newPos);
         },
         (error) => {
-          console.warn("Geolocation access denied or failed. Falling back to default center.", error.message);
-          // Only use India center if we don't have userPos yet
+          console.warn("Geolocation fallback to India Center:", error.message);
           if (!userPos) {
             setUserPos(INDIA_CENTER);
             if (onCursorLocationChange) onCursorLocationChange(INDIA_CENTER);
           }
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     } else {
-      console.warn("Geolocation not supported by this browser.");
       if (!userPos) {
         setUserPos(INDIA_CENTER);
         if (onCursorLocationChange) onCursorLocationChange(INDIA_CENTER);
       }
     }
-  }, []); // Run once on mount
+  }, []);
 
   const triggerSimulatedSos = async () => {
     if (!victimPos || victimPos.length !== 2 || isNaN(victimPos[0]) || isNaN(victimPos[1])) {
@@ -307,7 +414,7 @@ export default function CrimeMap({ sosAlerts = [], isAdminMode = false, onCursor
     setSosSuccess(false);
 
     try {
-      const response = await fetch('http://localhost:5000/sos', {
+      const response = await fetch(`${API_URL}/sos`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -342,31 +449,71 @@ export default function CrimeMap({ sosAlerts = [], isAdminMode = false, onCursor
         zoomControl={false}
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; CARTO'
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+          attribution="&copy; Esri &mdash; National Geographic, DeLorme, NAVTEQ"
+          maxZoom={16}
         />
 
-        <MapController userPos={userPos} isAdminMode={isAdminMode} victimPos={victimPos} />
+        <MapController userPos={userPos} isAdminMode={isAdminMode} victimPos={victimPos} focusedArea={focusedArea} />
         {userPos && <UserLocationMarker position={userPos} onPositionChange={setUserPos} />}
         <SosMarkers sosAlerts={sosAlerts} />
-        <PoliceStationsLayer enabled={showStations} />
+        <PoliceStationsLayer enabled={showStations} sosAlerts={sosAlerts} />
         <HeatmapLayer enabled={internalShowHeatmap} />
         <MapClickHandler isAdminMode={isAdminMode} onLocationSelect={setVictimPos} />
 
         {isAdminMode && (
-          <>
-            <SimulatedSosMarker position={victimPos} onMove={setVictimPos} />
-          </>
+          <SimulatedSosMarker position={victimPos} onMove={setVictimPos} />
         )}
       </MapContainer>
+
+      {/* Floating Area Focus HUD Banner */}
+      {focusedArea && (
+        <div style={{
+          position: 'absolute', top: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1000,
+          background: 'rgba(15, 23, 42, 0.92)', border: '1px solid #38bdf8', padding: '10px 22px',
+          borderRadius: '30px', color: 'white', display: 'flex', alignItems: 'center', gap: '15px',
+          boxShadow: '0 10px 30px rgba(56, 189, 248, 0.3)', backdropFilter: 'blur(10px)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '18px' }}>📍</span>
+            <span style={{ fontWeight: 800, color: '#38bdf8', fontSize: '15px' }}>
+              {focusedArea.name} Hotspot
+            </span>
+            <span style={{ fontSize: '13px', color: '#94a3b8' }}>
+              ({focusedArea.total.toLocaleString()} Incidents)
+            </span>
+            <span style={{
+              fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px',
+              background: focusedArea.threat === 'Critical' ? '#ef4444' : focusedArea.threat === 'High' ? '#f97316' : '#eab308',
+              color: 'white'
+            }}>
+              {focusedArea.threat?.toUpperCase()} THREAT
+            </span>
+          </div>
+          {onClearFocus && (
+            <button
+              onClick={onClearFocus}
+              style={{
+                background: 'rgba(255, 255, 255, 0.1)', border: 'none', color: '#e2e8f0',
+                padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 700,
+                cursor: 'pointer', transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.2)'}
+              onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.1)'}
+            >
+              ✖ All India
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Simulator Control Panel */}
       {isAdminMode && (
         <div style={{
           position: 'absolute', bottom: 30, left: 30, zIndex: 1000,
-          background: 'rgba(15, 23, 42, 0.9)', padding: '20px', borderRadius: '16px',
+          background: 'rgba(15, 23, 42, 0.95)', padding: '20px', borderRadius: '16px',
           border: '1px solid rgba(251, 146, 60, 0.4)', color: 'white',
-          width: '320px', backdropFilter: 'blur(10px)', boxShadow: '0 20px 50px rgba(0,0,0,0.5)'
+          width: '320px', backdropFilter: 'blur(10px)', boxShadow: '0 20px 50px rgba(0,0,0,0.6)'
         }}>
           <h4 style={{ margin: '0 0 10px 0', color: '#fb923c', letterSpacing: '0.5px' }}>🚨 LIVE SIMULATOR</h4>
           <p style={{ margin: '0 0 20px 0', fontSize: '13px', opacity: 0.8, lineHeight: 1.5 }}>
@@ -392,25 +539,24 @@ export default function CrimeMap({ sosAlerts = [], isAdminMode = false, onCursor
         </div>
       )}
 
-      {/* Map Legend/Toggles (Simplified) */}
+      {/* Map Legend & Toggles */}
       <div style={{
         position: 'absolute', top: 20, left: 20, zIndex: 1000,
-        background: 'rgba(15, 23, 42, 0.8)', padding: '12px 16px', borderRadius: '12px',
-        border: '1px solid rgba(255,255,255,0.1)', color: 'white', fontSize: '13px',
-        display: 'flex', flexDirection: 'column', gap: '8px'
+        background: 'rgba(15, 23, 42, 0.85)', padding: '12px 18px', borderRadius: '12px',
+        border: '1px solid rgba(255,255,255,0.15)', color: 'white', fontSize: '13px',
+        display: 'flex', flexDirection: 'column', gap: '8px', backdropFilter: 'blur(8px)'
       }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
           <input type="checkbox" checked={showStations} onChange={e => setShowStations(e.target.checked)} />
-          Police Stations
+          👮 Police Stations
         </label>
         {showHeatmap && (
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600 }}>
             <input type="checkbox" checked={internalShowHeatmap} onChange={e => setInternalShowHeatmap(e.target.checked)} />
-            Crime Heatmap
+            🔥 Crime Heatmap
           </label>
         )}
       </div>
     </div>
   );
 }
-

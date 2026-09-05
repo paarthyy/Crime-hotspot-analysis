@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '772786124174-83go9s21icd8m5lrqeu28brgfhaiupa1.apps.googleusercontent.com';
 
 function Login({ role }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState({ text: '', type: '' });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const isPolice = role === 'police';
@@ -19,12 +21,13 @@ function Login({ role }) {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
     try {
       const endpoint = isPolice ? '/police/login' : '/user/login';
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username: username.trim(), password })
       });
 
       const data = await response.json();
@@ -42,17 +45,25 @@ function Login({ role }) {
           } else {
             navigate('/user-landing');
           }
-        }, 1500);
+        }, 1200);
       } else {
         showMessage(data.message || 'Invalid credentials', 'error');
       }
     } catch (error) {
-      showMessage('Connection error to server', 'error');
+      showMessage('Connection error to server. Please ensure backend is running.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleGoogleResponse = async (response) => {
+    if (!response || !response.credential) {
+      showMessage('Google authentication did not return a valid credential.', 'error');
+      return;
+    }
+
     try {
+      showMessage('Verifying Google credentials...', 'success');
       const res = await fetch(`${API_URL}/auth/google`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,7 +85,7 @@ function Login({ role }) {
           } else {
             navigate('/user-landing');
           }
-        }, 1500);
+        }, 1200);
       } else {
         showMessage(data.message || 'Google authentication failed', 'error');
       }
@@ -88,21 +99,27 @@ function Login({ role }) {
     const initGoogleAuth = () => {
       if (window.google && document.getElementById('googleBtn')) {
         if (checkInterval) clearInterval(checkInterval);
-        window.google.accounts.id.initialize({
-          client_id: "772786124174-83go9s21icd8m5lrqeu28brgfhaiupa1.apps.googleusercontent.com",
-          callback: handleGoogleResponse
-        });
-        window.google.accounts.id.renderButton(
-          document.getElementById('googleBtn'),
-          { theme: "outline", size: "large", width: "100%", text: "signin_with" }
-        );
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+          window.google.accounts.id.renderButton(
+            document.getElementById('googleBtn'),
+            { theme: "outline", size: "large", width: "100%", text: "signin_with" }
+          );
+        } catch (err) {
+          console.warn('Google Sign-In initialization note:', err);
+        }
       }
     };
 
     if (window.google) {
       initGoogleAuth();
     } else {
-      checkInterval = setInterval(initGoogleAuth, 100);
+      checkInterval = setInterval(initGoogleAuth, 150);
     }
 
     return () => {
@@ -127,7 +144,7 @@ function Login({ role }) {
               type="text" 
               id="username" 
               required 
-              placeholder={isPolice ? 'Enter Badge ID' : 'Enter username'} 
+              placeholder={isPolice ? 'Enter Badge ID' : 'Enter username or email'} 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
             />
@@ -143,7 +160,9 @@ function Login({ role }) {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <button type="submit" className="btn">Sign In</button>
+          <button type="submit" className="btn" disabled={loading}>
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
 
         {!isPolice && (

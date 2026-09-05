@@ -80,10 +80,16 @@ function UserLanding() {
     }
   };
 
+  const [reportError, setReportError] = useState('');
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+
   const sendReport = async () => {
     const username = localStorage.getItem('username') || 'Anonymous';
     const title = `${reportType} at ${reportLocation || 'Unknown location'}`;
     const desc = `Seen at: ${reportTime || 'Unknown time'}\nDetails: ${reportDetails || 'No additional information provided.'}`;
+
+    setReportSubmitting(true);
+    setReportError('');
 
     try {
       const response = await fetch(`${API_URL}/reports`, {
@@ -109,42 +115,36 @@ function UserLanding() {
         setReportTime('');
         setReportDetails('');
         setUseCurrentLocation(false);
+        setReportError('');
         setTimeout(() => setFeedback(''), 5000);
       } else {
-        setFeedback(data.message || 'Unable to send crime report.');
+        setReportError(data.message || 'Unable to send crime report.');
       }
     } catch (error) {
-      setFeedback('Connection error while sending crime report.');
+      setReportError('Connection error while sending crime report. Please check server.');
       console.error('Report send error:', error);
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
   const handleSubmitReport = (e) => {
     e.preventDefault();
+    setReportError('');
 
     // Input validation
     if (!reportType) {
-      setFeedback('Please select a crime type.');
+      setReportError('Please select a crime type.');
       return;
     }
 
-    if (!reportLocation || reportLocation.trim().length < 3) {
-      setFeedback('Please provide a detailed location (at least 3 characters).');
+    if (!reportLocation || reportLocation.trim().length < 2) {
+      setReportError('Please provide a location where the incident occurred.');
       return;
     }
 
-    if (!reportTime || reportTime.trim().length < 3) {
-      setFeedback('Please provide incident time details.');
-      return;
-    }
-
-    if (!reportDetails || reportDetails.trim().length < 10) {
-      setFeedback('Please provide more details about the incident (at least 10 characters).');
-      return;
-    }
-
-    if (useCurrentLocation && (!cursorLocation || cursorLocation.length !== 2)) {
-      setFeedback('Location coordinates not available. Please try again.');
+    if (!reportTime || reportTime.trim().length < 2) {
+      setReportError('Please provide when the incident was observed.');
       return;
     }
 
@@ -305,9 +305,16 @@ function UserLanding() {
                 style={{ width: '100%', padding: '16px 20px', background: 'rgba(15, 23, 42, 0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px', color: 'white', resize: 'vertical' }}
               />
             </div>
+            {reportError && (
+              <div style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem', background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                ⚠️ {reportError}
+              </div>
+            )}
             <div className="modal-actions">
-              <button className="modal-btn cancel-sos" type="button" onClick={() => setShowReportModal(false)}>Cancel</button>
-              <button className="modal-btn confirm-sos" type="submit">Submit Report</button>
+              <button className="modal-btn cancel-sos" type="button" onClick={() => setShowReportModal(false)} disabled={reportSubmitting}>Cancel</button>
+              <button className="modal-btn confirm-sos" type="submit" disabled={reportSubmitting}>
+                {reportSubmitting ? 'Submitting Report...' : 'Submit Report'}
+              </button>
             </div>
           </form>
         </div>

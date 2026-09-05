@@ -64,17 +64,26 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // MongoDB Connection
-require("dotenv").config();
-
 const connectDB = async () => {
     try {
         const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/capstone";
+        console.log(`Attempting to connect to MongoDB (${MONGO_URI.includes('mongodb+srv') ? 'MongoDB Atlas Cloud' : 'Local MongoDB'})...`);
 
         await mongoose.connect(MONGO_URI);
-
         console.log("Connected to MongoDB ✅");
+
+        // Auto-sync indexes to ensure sparse unique indexes exist on User model
+        try {
+            await User.syncIndexes();
+            console.log("User model indexes synchronized ✅");
+        } catch (idxErr) {
+            console.warn("Index sync notice:", idxErr.message);
+        }
     } catch (err) {
-        console.error("MongoDB Connection Error ❌", err);
+        console.error("MongoDB Connection Error ❌:", err.message);
+        if (err.message && err.message.includes('whitelist') || err.message.includes('timed out')) {
+            console.error("👉 Tip for MongoDB Atlas: Make sure your current IP address (or 0.0.0.0/0) is added to Network Access in MongoDB Atlas!");
+        }
         process.exit(1);
     }
 };
@@ -168,41 +177,76 @@ app.use('/api', stationsRouter);
 
 // Signup Route
 app.post("/signup", async (req, res) => {
-    console.log("LOG: Signup request for:", req.body.username);
-    try {
-        const { username, password } = req.body;
+    const rawUsername = req.body.username;
+    const rawEmail = req.body.email;
+    const password = req.body.password;
 
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).json({ message: "User already exists" });
+    console.log("LOG: Signup request for:", rawUsername, rawEmail ? `(email: ${rawEmail})` : '');
+    try {
+        if (!rawUsername || rawUsername.trim().length < 3) {
+            return res.status(400).json({ message: "Username must be at least 3 characters long" });
+        }
+        if (!password || password.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters long" });
+        }
+
+        const username = rawUsername.trim();
+        const email = rawEmail && rawEmail.trim() ? rawEmail.trim().toLowerCase() : undefined;
+
+        // Check if username already exists
+        const existingUsername = await User.findOne({ username });
+        if (existingUsername) {
+            return res.status(400).json({ message: "Username is already taken. Please choose another." });
+        }
+
+        // Check if email already exists
+        if (email) {
+            const existingEmail = await User.findOne({ email });
+            if (existingEmail) {
+                return res.status(400).json({ message: "Email is already registered. Please login instead." });
+            }
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({
+        const userData = {
             username,
             password: hashedPassword,
-            role: 'user' // Explicitly set role to public user
-        });
+            role: 'user'
+        };
+        if (email) {
+            userData.email = email;
+        }
+
+        const newUser = new User(userData);
         await newUser.save();
 
         console.log("LOG: User created successfully:", username);
-        res.status(201).json({ message: "User created successfully" });
+        res.status(201).json({ message: "Account created successfully" });
     } catch (error) {
         console.error("LOG: Signup Error:", error);
+        if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern || {})[0] || 'Field';
+            return res.status(400).json({ message: `${field.charAt(0).toUpperCase() + field.slice(1)} is already taken.` });
+        }
         res.status(500).json({ message: "Error creating user", error: error.message });
     }
 });
 
 // User Login Route
 app.post("/user/login", async (req, res) => {
-    console.log("LOG: Public User Login request for:", req.body.username);
+    const identifier = req.body.username ? req.body.username.trim() : '';
+    const password = req.body.password;
+
+    console.log("LOG: Public User Login request for:", identifier);
     try {
-        const { username, password } = req.body;
+        if (!identifier || !password) {
+            return res.status(400).json({ message: "Please provide username/email and password" });
+        }
 
         // --- UNIVERSAL ADMIN SIMULATOR BYPASS ---
-        const lowerUser = username?.toLowerCase();
+        const lowerUser = identifier.toLowerCase();
         if ((lowerUser === 'police_admin' || lowerUser === 'policeadmin') && password === 'ADMIN777') {
-            console.log(">>> [BYPASS] Universal Login triggered for:", username);
+            console.log(">>> [BYPASS] Universal Login triggered for:", identifier);
             return res.status(200).json({ 
                 message: "Authentication successful (Universal Bypass)", 
                 token: jwt.sign(
@@ -215,14 +259,25 @@ app.post("/user/login", async (req, res) => {
             });
         }
 
-        const user = await User.findOne({ username });
+        // Match either username or email
+        const user = await User.findOne({
+            $or: [
+                { username: identifier },
+                { email: identifier.toLowerCase() }
+            ]
+        });
+
         if (!user) {
-            return res.status(400).json({ message: "Invalid username or password" });
+            return res.status(400).json({ message: "Invalid username/email or password" });
+        }
+
+        if (!user.password && user.googleId) {
+            return res.status(400).json({ message: "This account was created with Google Sign-In. Please sign in with Google." });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(400).json({ message: "Invalid username or password" });
+            return res.status(400).json({ message: "Invalid username/email or password" });
         }
 
         const token = jwt.sign(
@@ -259,9 +314,15 @@ app.post("/police/login", async (req, res) => {
             });
         }
 
-        const officer = await Police.findOne({ username });
+        const identifier = username ? username.trim() : '';
+        const officer = await Police.findOne({
+            $or: [
+                { username: identifier },
+                { email: identifier.toLowerCase() }
+            ]
+        });
         if (!officer) {
-            return res.status(400).json({ message: "Access Denied: Invalid Badge ID or Password" });
+            return res.status(400).json({ message: "Access Denied: Invalid Badge ID, Email or Password" });
         }
 
         const isMatch = await bcrypt.compare(password, officer.password);
@@ -285,37 +346,56 @@ app.post("/police/login", async (req, res) => {
 // Google Login/Signup Route
 app.post("/auth/google", async (req, res) => {
     const { token } = req.body;
+    if (!token) {
+        return res.status(400).json({ message: "Missing Google ID token" });
+    }
+
     try {
+        const googleClientId = process.env.GOOGLE_CLIENT_ID;
         const ticket = await client.verifyIdToken({
             idToken: token,
-            audience: process.env.GOOGLE_CLIENT_ID,
+            audience: googleClientId,
         });
         const payload = ticket.getPayload();
         const { sub: googleId, email, name, picture } = payload;
 
         let user = await User.findOne({
-            $or: [{ googleId }, { email }]
+            $or: [
+                { googleId },
+                ...(email ? [{ email: email.toLowerCase() }] : [])
+            ]
         });
 
         if (!user) {
-            // Create new user if they don't exist
+            // Generate clean, unique username
+            let baseName = (name || (email ? email.split('@')[0] : 'google_user'))
+                .toLowerCase()
+                .replace(/[^a-z0-9_]/g, '_')
+                .slice(0, 20);
+            
+            let finalUsername = baseName;
+            let counter = 1;
+            while (await User.findOne({ username: finalUsername })) {
+                finalUsername = `${baseName}_${counter++}`;
+            }
+
             user = new User({
-                username: name || email.split('@')[0], // Use name or part of email as username
-                email,
+                username: finalUsername,
+                email: email ? email.toLowerCase() : undefined,
                 googleId,
                 role: 'user'
             });
             await user.save();
             console.log("LOG: New user created via Google:", user.username);
         } else if (!user.googleId) {
-            // If user exists with email but no googleId, link them
+            // Link existing email user to Google
             user.googleId = googleId;
             await user.save();
-            console.log("LOG: Linked existing email to Google account:", email);
+            console.log("LOG: Linked existing email account to Google:", email);
         }
 
         const jwtToken = jwt.sign(
-            { id: user._id, role: 'user' },
+            { id: user._id, role: user.role || 'user' },
             process.env.JWT_SECRET || "secret_key",
             { expiresIn: "7d" }
         );
@@ -324,12 +404,12 @@ app.post("/auth/google", async (req, res) => {
             message: "Google Login successful",
             token: jwtToken,
             username: user.username,
-            role: 'user',
+            role: user.role || 'user',
             picture
         });
     } catch (error) {
-        console.error("LOG: Google Auth Error:", error);
-        res.status(400).json({ message: "Invalid Google token", error: error.message });
+        console.error("LOG: Google Auth Error:", error.message);
+        res.status(400).json({ message: "Google authentication failed: " + error.message, error: error.message });
     }
 });
 
@@ -523,6 +603,6 @@ app.get(/.*/, (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on port ${PORT} (0.0.0.0)`);
 });

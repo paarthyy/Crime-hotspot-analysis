@@ -365,12 +365,17 @@ function PoliceDashboard() {
     });
   };
 
+  const [focusedArea, setFocusedArea] = useState(null);
+
   const renderRankings = () => {
     if (rankingsData.length === 0) {
       return <div style={{ textAlign: 'center', color: 'var(--text-gray)', padding: '2rem' }}>Loading area data...</div>;
     }
     return (
       <div className="rankings-container">
+        <div style={{ padding: '0 0 10px 0', fontSize: '0.8rem', color: '#38bdf8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>💡</span> Click any city below to inspect its crime hotspot on the map
+        </div>
         <table className="rankings-table">
           <thead>
             <tr>
@@ -382,19 +387,34 @@ function PoliceDashboard() {
             </tr>
           </thead>
           <tbody>
-            {rankingsData.map((area, index) => (
-              <tr key={index}>
-                <td style={{ fontWeight: 800, color: 'var(--text-gray)' }}>#{index + 1}</td>
-                <td style={{ fontWeight: 600, color: '#e2e8f0' }}>{area.name}</td>
-                <td>{area.total}</td>
-                <td style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{area.topPattern}</td>
-                <td>
-                  <span className={`threat-badge threat-${area.threat.toLowerCase()}`}>
-                    {area.threat}
-                  </span>
-                </td>
-              </tr>
-            ))}
+            {rankingsData.map((area, index) => {
+              const isSelected = focusedArea?.name === area.name;
+              return (
+                <tr
+                  key={index}
+                  onClick={() => setFocusedArea({ ...area, rank: index + 1 })}
+                  style={{
+                    cursor: 'pointer',
+                    background: isSelected ? 'rgba(56, 189, 248, 0.18)' : undefined,
+                    borderLeft: isSelected ? '4px solid #38bdf8' : '4px solid transparent',
+                    transition: 'all 0.2s ease'
+                  }}
+                  title={`Click to zoom and view ${area.name} hotspots`}
+                >
+                  <td style={{ fontWeight: 800, color: isSelected ? '#38bdf8' : 'var(--text-gray)' }}>#{index + 1}</td>
+                  <td style={{ fontWeight: 700, color: isSelected ? '#38bdf8' : '#e2e8f0' }}>
+                    {area.name} {isSelected && '🎯'}
+                  </td>
+                  <td style={{ fontWeight: 600 }}>{area.total?.toLocaleString()}</td>
+                  <td style={{ fontSize: '0.82rem', color: '#94a3b8' }}>{area.topPattern}</td>
+                  <td>
+                    <span className={`threat-badge threat-${area.threat.toLowerCase()}`}>
+                      {area.threat}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -448,9 +468,15 @@ function PoliceDashboard() {
           </div>
         </div>
 
-        {/* Main Crime Map with Admin & SOS props */}
+        {/* Main Crime Map with Admin, SOS, and focused Area props */}
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}>
-          <CrimeMap sosAlerts={sosAlerts} isAdminMode={isAdminMode} showHeatmap={true} />
+          <CrimeMap
+            sosAlerts={sosAlerts}
+            isAdminMode={isAdminMode}
+            showHeatmap={true}
+            focusedArea={focusedArea}
+            onClearFocus={() => setFocusedArea(null)}
+          />
         </div>
       </main>
 
